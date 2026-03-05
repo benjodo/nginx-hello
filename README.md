@@ -256,16 +256,17 @@ Uses Docker Buildx with layer caching for faster builds:
 - View vulnerabilities in the "Security" tab → "Code scanning alerts"
 - Get automated Dependabot-style alerts for new CVEs
 
-**Running Trivy locally:**
+**Running Trivy locally (reproduces CI failure):**
 
 ```bash
 # Install Trivy (macOS)
 brew install trivy
 
-# Scan your local image
-trivy image nginx-hello
+# One command: build image and run same scan as CI
+./scripts/trivy-scan.sh
 
-# Scan with same settings as CI
+# Or manually: build then scan with same settings as CI
+docker build -t nginx-hello .
 trivy image --severity CRITICAL,HIGH --exit-code 1 nginx-hello
 ```
 
