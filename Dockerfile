@@ -1,10 +1,8 @@
-# Pin base image to specific version for reproducibility and security
-FROM nginx:1.27.3-alpine
+# Pin to a newer slim Alpine image with patched OS packages.
+FROM nginx:1.28.2-alpine3.23-slim
 
-# Install wget for health checks and remove default nginx configuration
-# Pin wget version for reproducibility
-RUN apk add --no-cache wget=1.24.5-r0 && \
-    rm -rf /usr/share/nginx/html/* /etc/nginx/conf.d/default.conf
+# Remove default nginx configuration and static assets.
+RUN rm -rf /usr/share/nginx/html/* /etc/nginx/conf.d/default.conf
 
 # Copy custom nginx configuration that runs on port 8080 with security headers
 COPY nginx.conf /etc/nginx/nginx.conf
@@ -12,8 +10,7 @@ COPY nginx.conf /etc/nginx/nginx.conf
 # Copy our custom HTML file
 COPY index.html /usr/share/nginx/html/
 
-# Create non-root user and setup permissions
-# nginx needs write access to cache/log directories for operation
+# Create non-root user and set up writable paths for nginx.
 RUN addgroup -g 1000 appuser && \
     adduser -D -u 1000 -G appuser appuser && \
     mkdir -p /var/cache/nginx /var/log/nginx /tmp/client_temp /tmp/proxy_temp_path /tmp/fastcgi_temp /tmp/uwsgi_temp /tmp/scgi_temp && \
@@ -26,7 +23,7 @@ USER appuser
 # Expose unprivileged port (non-root users cannot bind to ports < 1024)
 EXPOSE 8080
 
-# Health check using wget to verify nginx is responding
+# Use the bundled wget applet for a lightweight health check.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080/healthz || exit 1
 

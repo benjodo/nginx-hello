@@ -45,7 +45,7 @@ Before you begin, ensure you have:
 ### Pinned Base Image
 
 ```dockerfile
-FROM nginx:1.27.3-alpine
+FROM nginx:1.28.2-alpine3.23-slim
 ```
 
 **Why?** Using `:alpine` or `:latest` tags can introduce breaking changes or vulnerabilities when the upstream image updates. Pinning to a specific version ensures:
@@ -92,12 +92,10 @@ We created a lightweight `/healthz` endpoint in nginx.conf that returns a simple
 ### Minimal Dependencies
 
 ```dockerfile
-RUN apk add --no-cache wget=1.24.5-r0
+FROM nginx:1.28.2-alpine3.23-slim
 ```
 
-**Why?** Alpine Linux keeps images small (< 50MB vs 100MB+ for Debian). We only install `wget` for health checks. Fewer packages = smaller attack surface and faster pulls.
-
-**Version pinning:** We pin the wget version to ensure reproducible builds and avoid unexpected updates that could introduce vulnerabilities or breaking changes.
+**Why?** The slim Alpine variant keeps the image small and avoids pulling in extra OS packages we don't need. The image already includes a `wget` applet for health checks, so we can keep the attack surface smaller by not installing additional packages.
 
 ## Security Hardening
 
@@ -239,11 +237,16 @@ Uses Docker Buildx with layer caching for faster builds:
 
 ```yaml
 - name: Run Trivy vulnerability scanner
-  uses: aquasecurity/trivy-action@0.28.0
-  with:
-    image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-    severity: 'CRITICAL,HIGH'
-    exit-code: '1'  # Fail the build if vulnerabilities found
+  run: |
+    docker save "$IMAGE_REF" -o image.tar
+    docker run --rm \
+      -v "$PWD:/workdir" \
+      -w /workdir \
+      aquasec/trivy:0.59.1 image --input image.tar \
+      --scanners vuln \
+      --format table \
+      --severity CRITICAL,HIGH \
+      --exit-code 1
 ```
 
 **Trivy scans for:**
@@ -252,22 +255,17 @@ Uses Docker Buildx with layer caching for faster builds:
 - Misconfigurations
 - Secrets accidentally included in image
 
-**Results are uploaded to GitHub Security:**
-- View vulnerabilities in the "Security" tab → "Code scanning alerts"
-- Get automated Dependabot-style alerts for new CVEs
-
 **Running Trivy locally (reproduces CI failure):**
 
 ```bash
-# Install Trivy (macOS)
-brew install trivy
-
-# One command: build image and run same scan as CI
-./scripts/trivy-scan.sh
-
-# Or manually: build then scan with same settings as CI
+# Build the image
 docker build -t nginx-hello .
-trivy image --severity CRITICAL,HIGH --exit-code 1 nginx-hello
+
+# Export and scan it with the same containerized Trivy flow as CI
+docker save nginx-hello -o image.tar
+docker run --rm -v "$PWD:/workdir" -w /workdir \
+  aquasec/trivy:0.59.1 image --input image.tar \
+  --scanners vuln --format table --severity CRITICAL,HIGH --exit-code 1
 ```
 
 #### 4. Publishing to GitHub Container Registry
@@ -504,8 +502,8 @@ $ ls -la /var/cache/nginx  # Should be owned by appuser
 
 **Solutions:**
 
-1. **Update base image:** Change `nginx:1.27.3-alpine` to a newer patched version
-2. **Review findings:** Check the uploaded SARIF results in GitHub Security tab
+1. **Update base image:** Change to a newer patched nginx/alpine image such as `nginx:1.28.2-alpine3.23-slim`
+2. **Review findings:** Check the Trivy table output in the GitHub Actions log
 3. **Suppress false positives:** Create a `.trivyignore` file:
    ```
    # Example: Suppress specific CVE if it's a false positive
@@ -520,7 +518,7 @@ $ ls -la /var/cache/nginx  # Should be owned by appuser
 **Cause:** Dockerfile doesn't follow best practices
 
 **Common issues:**
-- Missing version pins: `FROM nginx:alpine` should be `FROM nginx:1.27.3-alpine`
+- Missing version pins: `FROM nginx:alpine` should be a specific version such as `FROM nginx:1.28.2-alpine3.23-slim`
 - Inefficient RUN commands (should combine with `&&`)
 - Using `COPY` instead of `ADD` for URLs
 - Missing `USER` instruction
@@ -553,7 +551,7 @@ COPY . .
 RUN npm run build
 
 # Runtime stage
-FROM nginx:1.27.3-alpine
+FROM nginx:1.28.2-alpine3.23-slim
 COPY --from=builder /app/dist /usr/share/nginx/html
 # ... rest of hardening steps
 ```
