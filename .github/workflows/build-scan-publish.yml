@@ -77,6 +77,11 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Tag image for Trivy
+        run: |
+          FIRST_TAG=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
+          docker tag "$FIRST_TAG" ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
       - name: Run Trivy vulnerability scanner
         id: trivy
         uses: aquasecurity/trivy-action@0.28.0
