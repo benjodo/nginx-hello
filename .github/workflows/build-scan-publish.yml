@@ -79,10 +79,25 @@ jobs:
 
       - name: Get image ref for Trivy
         id: trivy-ref
+        env:
+          META_JSON: ${{ steps.meta.outputs.json }}
         run: |
-          REF=$(echo '${{ steps.meta.outputs.tags }}' | head -n1 | tr -d '[:space:]')
+          REF=$(python3 - <<'PY'
+          import json
+          import os
+          data = json.loads(os.environ["META_JSON"])
+          tags = data.get("tags") or []
+          print(tags[0] if tags else "")
+          PY
+          )
+          if [ -z "$REF" ] || [ "$REF" = "null" ]; then
+            echo "Unable to determine image ref from docker metadata output."
+            exit 1
+          fi
           echo "ref=$REF" >> $GITHUB_OUTPUT
           echo "Image to scan: $REF"
+          echo "Event: ${{ github.event_name }}"
+          echo "Git ref: ${{ github.ref }}"
 
       # Save to tar so Trivy can scan without Docker socket/context issues
       # (buildx can use a different context; trivy-action couldn't see the image)
@@ -91,14 +106,13 @@ jobs:
           docker save ${{ steps.trivy-ref.outputs.ref }} -o image.tar
           ls -la image.tar
 
-      - name: Install Trivy
-        uses: aquasecurity/setup-trivy@v0.2.5
-        with:
-          version: v0.56.1
-
       - name: Run Trivy vulnerability scanner (table)
         run: |
-          trivy image --input image.tar \
+          docker run --rm \
+            -v "$PWD:/workdir" \
+            -w /workdir \
+            aquasec/trivy:0.59.1 image --input image.tar \
+            --scanners vuln \
             --format table \
             --severity CRITICAL,HIGH \
             --exit-code 0
@@ -106,14 +120,18 @@ jobs:
       - name: Run Trivy vulnerability scanner (SARIF)
         id: trivy
         run: |
-          trivy image --input image.tar \
+          docker run --rm \
+            -v "$PWD:/workdir" \
+            -w /workdir \
+            aquasec/trivy:0.59.1 image --input image.tar \
+            --scanners vuln \
             --format sarif \
             --output trivy-results.sarif \
             --severity CRITICAL,HIGH \
             --exit-code 1
 
       - name: Upload Trivy results to GitHub Security
-        if: steps.trivy.outcome == 'success' || steps.trivy.outcome == 'failure'
+        if: always() && hashFiles('trivy-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
