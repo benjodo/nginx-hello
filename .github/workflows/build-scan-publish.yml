@@ -77,15 +77,17 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Tag image for Trivy
+      - name: Get image ref for Trivy
+        id: trivy-ref
         run: |
-          FIRST_TAG=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
-          docker tag "$FIRST_TAG" ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          REF=$(echo '${{ steps.meta.outputs.tags }}' | head -n1 | tr -d '[:space:]')
+          echo "ref=$REF" >> $GITHUB_OUTPUT
+          echo "Scanning image: $REF"
 
       - name: Run Trivy vulnerability scanner (table)
         uses: aquasecurity/trivy-action@0.28.0
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          image-ref: ${{ steps.trivy-ref.outputs.ref }}
           format: 'table'
           severity: 'CRITICAL,HIGH'
           exit-code: '0'
@@ -94,7 +96,7 @@ jobs:
         id: trivy
         uses: aquasecurity/trivy-action@0.28.0
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          image-ref: ${{ steps.trivy-ref.outputs.ref }}
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
