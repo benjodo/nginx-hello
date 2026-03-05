@@ -1,11 +1,10 @@
 # Pin base image to specific version for reproducibility and security
 FROM nginx:1.27.3-alpine
 
-# Install wget for health checks (minimal Alpine doesn't include it)
-RUN apk add --no-cache wget
-
-# Remove default nginx configuration and static assets
-RUN rm -rf /usr/share/nginx/html/* /etc/nginx/conf.d/default.conf
+# Install wget for health checks and remove default nginx configuration
+# Pin wget version for reproducibility
+RUN apk add --no-cache wget=1.24.5-r0 && \
+    rm -rf /usr/share/nginx/html/* /etc/nginx/conf.d/default.conf
 
 # Copy custom nginx configuration that runs on port 8080 with security headers
 COPY nginx.conf /etc/nginx/nginx.conf
@@ -13,13 +12,11 @@ COPY nginx.conf /etc/nginx/nginx.conf
 # Copy our custom HTML file
 COPY index.html /usr/share/nginx/html/
 
-# Create non-root user and group
+# Create non-root user and setup permissions
+# nginx needs write access to cache/log directories for operation
 RUN addgroup -g 1000 appuser && \
-    adduser -D -u 1000 -G appuser appuser
-
-# Create necessary directories and set permissions for non-root user
-# nginx needs write access to these directories for operation
-RUN mkdir -p /var/cache/nginx /var/log/nginx /tmp/client_temp /tmp/proxy_temp_path /tmp/fastcgi_temp /tmp/uwsgi_temp /tmp/scgi_temp && \
+    adduser -D -u 1000 -G appuser appuser && \
+    mkdir -p /var/cache/nginx /var/log/nginx /tmp/client_temp /tmp/proxy_temp_path /tmp/fastcgi_temp /tmp/uwsgi_temp /tmp/scgi_temp && \
     chown -R appuser:appuser /var/cache/nginx /var/log/nginx /tmp/client_temp /tmp/proxy_temp_path /tmp/fastcgi_temp /tmp/uwsgi_temp /tmp/scgi_temp /usr/share/nginx/html && \
     chmod -R 755 /var/cache/nginx /var/log/nginx /tmp/client_temp /tmp/proxy_temp_path /tmp/fastcgi_temp /tmp/uwsgi_temp /tmp/scgi_temp
 

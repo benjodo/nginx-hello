@@ -92,10 +92,12 @@ We created a lightweight `/healthz` endpoint in nginx.conf that returns a simple
 ### Minimal Dependencies
 
 ```dockerfile
-RUN apk add --no-cache wget
+RUN apk add --no-cache wget=1.24.5-r0
 ```
 
 **Why?** Alpine Linux keeps images small (< 50MB vs 100MB+ for Debian). We only install `wget` for health checks. Fewer packages = smaller attack surface and faster pulls.
+
+**Version pinning:** We pin the wget version to ensure reproducible builds and avoid unexpected updates that could introduce vulnerabilities or breaking changes.
 
 ## Security Hardening
 
