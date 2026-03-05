@@ -1,0 +1,71 @@
+name: Deploy to Aptible
+
+on:
+  # Manual deployment trigger
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to deploy (e.g., v1.0.0, main-abc123, latest)'
+        required: true
+        default: 'latest'
+
+  # Automatic deployment on release
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy:
+    name: Deploy to Aptible
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Aptible CLI
+        run: |
+          # Download Aptible CLI from official source
+          # Note: For enhanced security, consider adding SHA256 verification
+          # if Aptible publishes checksums for their releases
+          wget -O aptible-package https://omnibus-aptible-toolbelt.s3.amazonaws.com/aptible/omnibus-aptible-toolbelt/master/206/pkg/aptible-toolbelt_0.16.5%2B20200508143656~ubuntu.16.04-1_amd64.deb
+          sudo dpkg -i aptible-package
+          aptible version
+
+      - name: Determine image tag
+        id: image_tag
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            # Extract tag from release (remove 'refs/tags/' prefix if present)
+            TAG="${{ github.event.release.tag_name }}"
+            echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          else
+            # Use manual input
+            echo "tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to Aptible
+        env:
+          APTIBLE_EMAIL: ${{ secrets.APTIBLE_EMAIL }}
+          APTIBLE_PASSWORD: ${{ secrets.APTIBLE_PASSWORD }}
+        run: |
+          # Login to Aptible
+          aptible login --email="$APTIBLE_EMAIL" --password="$APTIBLE_PASSWORD"
+
+          # Deploy the specific image tag from GHCR
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.image_tag.outputs.tag }}"
+          echo "Deploying image: $IMAGE"
+
+          aptible deploy \
+            --app ${{ vars.APTIBLE_APP }} \
+            --docker-image "$IMAGE" \
+            --private-registry-username ${{ github.actor }} \
+            --private-registry-password ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deployment summary
+        run: |
+          echo "### Deployment Complete! :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.image_tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**App:** \`${{ vars.APTIBLE_APP }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "View your app: https://dashboard.aptible.com/" >> $GITHUB_STEP_SUMMARY

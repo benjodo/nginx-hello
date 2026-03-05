@@ -3,3 +3,7 @@ Dockerfile
 .git
 .gitignore
 README.md
+LICENSE
+*.md
+.github/
+.aptible.yml

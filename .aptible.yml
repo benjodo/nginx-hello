@@ -1,0 +1,16 @@
+# Aptible deployment configuration
+# This file defines commands to run before releases are deployed
+
+# before_release:
+#   # Example: Run database migrations
+#   # - bundle exec rake db:migrate
+#
+#   # Example: Compile assets (for Rails apps)
+#   # - bundle exec rake assets:precompile
+#
+#   # Example: Clear cache
+#   # - bundle exec rake cache:clear
+
+# For this static site, no before_release hooks are needed.
+# This file demonstrates the pattern for applications that require
+# pre-deployment tasks like migrations or asset compilation.
