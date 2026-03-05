@@ -63,7 +63,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=sha,prefix={{branch}}-
+            type=sha,prefix=sha-
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build Docker image
@@ -77,20 +77,45 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '1'
+      - name: Get image ref for Trivy
+        id: trivy-ref
+        env:
+          META_JSON: ${{ steps.meta.outputs.json }}
+        run: |
+          REF=$(python3 - <<'PY'
+          import json
+          import os
+          data = json.loads(os.environ["META_JSON"])
+          tags = data.get("tags") or []
+          print(tags[0] if tags else "")
+          PY
+          )
+          if [ -z "$REF" ] || [ "$REF" = "null" ]; then
+            echo "Unable to determine image ref from docker metadata output."
+            exit 1
+          fi
+          echo "ref=$REF" >> $GITHUB_OUTPUT
+          echo "Image to scan: $REF"
+          echo "Event: ${{ github.event_name }}"
+          echo "Git ref: ${{ github.ref }}"
 
-      - name: Upload Trivy results to GitHub Security
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'trivy-results.sarif'
+      # Save to tar so Trivy can scan without Docker socket/context issues
+      # (buildx can use a different context; trivy-action couldn't see the image)
+      - name: Save image for Trivy
+        run: |
+          docker save ${{ steps.trivy-ref.outputs.ref }} -o image.tar
+          ls -la image.tar
+
+      - name: Run Trivy vulnerability scanner (table)
+        run: |
+          docker run --rm \
+            -v "$PWD:/workdir" \
+            -w /workdir \
+            aquasec/trivy:0.59.1 image --input image.tar \
+            --scanners vuln \
+            --format table \
+            --severity CRITICAL,HIGH \
+            --exit-code 1
 
       - name: Push Docker image to GHCR
         if: github.event_name != 'pull_request'
