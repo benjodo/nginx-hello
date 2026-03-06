@@ -23,9 +23,5 @@ USER appuser
 # Expose unprivileged port (non-root users cannot bind to ports < 1024)
 EXPOSE 8080
 
-# Use the bundled wget applet for a lightweight health check.
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/healthz || exit 1
-
 # Start nginx in foreground mode
 CMD ["nginx", "-g", "daemon off;"]

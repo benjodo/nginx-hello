@@ -6,7 +6,7 @@ A comprehensive reference implementation demonstrating how to build, scan, and d
 
 This repository shows you how to:
 
-- **Build hardened Docker images** with pinned base images, non-root users, and health checks
+- **Build hardened Docker images** with pinned base images and non-root users
 - **Implement security headers** and nginx best practices
 - **Scan for vulnerabilities** using Trivy before deployment
 - **Automate CI/CD** with GitHub Actions for linting, scanning, and publishing
@@ -75,27 +75,13 @@ EXPOSE 8080
 
 **Why?** Ports below 1024 require root privileges on Linux. By using port 8080, we can run nginx as a non-root user. Aptible's load balancer handles the mapping from public port 80/443 to your container's port 8080.
 
-### Health Check
-
-```dockerfile
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/healthz || exit 1
-```
-
-**Why?** Docker and orchestrators like Kubernetes use health checks to:
-- Detect when containers are stuck or unresponsive
-- Avoid routing traffic to unhealthy containers
-- Automatically restart failed containers
-
-We created a lightweight `/healthz` endpoint in nginx.conf that returns a simple 200 OK response.
-
 ### Minimal Dependencies
 
 ```dockerfile
 FROM nginx:1.28.2-alpine3.23-slim
 ```
 
-**Why?** The slim Alpine variant keeps the image small and avoids pulling in extra OS packages we don't need. The image already includes a `wget` applet for health checks, so we can keep the attack surface smaller by not installing additional packages.
+**Why?** The slim Alpine variant keeps the image small and avoids pulling in extra OS packages we don't need, reducing attack surface.
 
 ## Security Hardening
 
@@ -154,16 +140,6 @@ docker run -d -p 8080:8080 --name nginx-hello-test nginx-hello
 ```
 
 Visit [http://localhost:8080](http://localhost:8080) to see the page.
-
-### Verify Health Check
-
-```bash
-# Check health check endpoint
-curl http://localhost:8080/healthz
-
-# Inspect container health status
-docker inspect --format='{{.State.Health.Status}}' nginx-hello-test
-```
 
 ### Verify Security Headers
 
@@ -440,28 +416,12 @@ aptible endpoints --app nginx-hello
 
 Visit the endpoint URL in your browser. You should see the "Hello, World!" page.
 
-### Monitor Health
-
-Aptible uses your Dockerfile's `HEALTHCHECK` to monitor container health. If the health check fails, Aptible will restart the container.
-
 ```bash
 # View app metrics
 aptible metrics --app nginx-hello
 ```
 
 ## Troubleshooting
-
-### Health Check Failing
-
-**Symptom:** Container restarts repeatedly, logs show health check timeouts
-
-**Cause:** Health check is trying the wrong port
-
-**Solution:** Verify the Dockerfile `HEALTHCHECK` uses port 8080, matching the nginx.conf configuration:
-
-```dockerfile
-HEALTHCHECK CMD wget --no-verbose --tries=1 --spider http://localhost:8080/healthz || exit 1
-```
 
 ### Permission Denied Errors
 

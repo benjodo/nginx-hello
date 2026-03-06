@@ -18,7 +18,6 @@ This repository demonstrates security best practices for container deployments:
 - ✅ Pinned base image versions (no `latest` tags)
 - ✅ Non-root user execution
 - ✅ Minimal attack surface (Alpine Linux)
-- ✅ Health checks configured
 - ✅ Read-only filesystem compatible
 
 ### nginx Security
