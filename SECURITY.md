@@ -27,7 +27,7 @@ This repository demonstrates security best practices for container deployments:
 - ✅ Unprivileged port (8080)
 
 ### CI/CD Security
-- ✅ Automated vulnerability scanning with Trivy
+- ✅ Automated vulnerability scanning with Grype
 - ✅ Dockerfile linting with Hadolint
 - ✅ Scan results uploaded to GitHub Security
 - ✅ Builds fail on CRITICAL/HIGH vulnerabilities
@@ -60,7 +60,7 @@ For production deployments, consider implementing one of these hardening options
 
 ### Base Image Updates
 
-When Trivy reports vulnerabilities in the nginx base image:
+When Grype reports vulnerabilities in the nginx base image:
 
 1. Check for newer nginx Alpine versions: https://hub.docker.com/_/nginx/tags?name=alpine
 2. Update the `FROM` line in `Dockerfile`

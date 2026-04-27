@@ -8,7 +8,7 @@ This repository shows you how to:
 
 - **Build hardened Docker images** with pinned base images and non-root users
 - **Implement security headers** and nginx best practices
-- **Scan for vulnerabilities** using Trivy before deployment
+- **Scan for vulnerabilities** using Grype before deployment
 - **Automate CI/CD** with GitHub Actions for linting, scanning, and publishing
 - **Deploy to Aptible** using pre-scanned images from GitHub Container Registry
 - **Follow the principle of immutability** by deploying exact, tested image artifacts
@@ -53,7 +53,7 @@ FROM nginx:1.28.2-alpine3.23-slim
 - **Predictable updates** - you control when to upgrade
 - **Security** - you can track which CVEs affect your specific version
 
-**When to update?** When Trivy scans detect vulnerabilities in your base image, update the tag and test thoroughly before deploying.
+**When to update?** When Grype scans detect vulnerabilities in your base image, update the tag and test thoroughly before deploying.
 
 ### Non-Root User
 
@@ -209,39 +209,36 @@ Uses Docker Buildx with layer caching for faster builds:
     cache-to: type=gha,mode=max
 ```
 
-#### 3. Vulnerability Scanning (Trivy)
+#### 3. Vulnerability Scanning (Grype)
 
 ```yaml
-- name: Run Trivy vulnerability scanner
+- name: Run Grype vulnerability scanner
   run: |
     docker save "$IMAGE_REF" -o image.tar
     docker run --rm \
       -v "$PWD:/workdir" \
       -w /workdir \
-      aquasec/trivy:0.59.1 image --input image.tar \
-      --scanners vuln \
-      --format table \
-      --severity CRITICAL,HIGH \
-      --exit-code 1
+      anchore/grype:v0.111.1 docker-archive:image.tar \
+      --output table \
+      --fail-on high
 ```
 
-**Trivy scans for:**
+**Grype scans for:**
 - OS package vulnerabilities (Alpine packages)
 - Application dependencies vulnerabilities
-- Misconfigurations
-- Secrets accidentally included in image
+- Container image contents loaded from `docker save`
 
-**Running Trivy locally (reproduces CI failure):**
+**Running Grype locally (reproduces CI failure):**
 
 ```bash
 # Build the image
 docker build -t nginx-hello .
 
-# Export and scan it with the same containerized Trivy flow as CI
+# Export and scan it with the same containerized Grype flow as CI
 docker save nginx-hello -o image.tar
 docker run --rm -v "$PWD:/workdir" -w /workdir \
-  aquasec/trivy:0.59.1 image --input image.tar \
-  --scanners vuln --format table --severity CRITICAL,HIGH --exit-code 1
+  anchore/grype:v0.111.1 docker-archive:image.tar \
+  --output table --fail-on high
 ```
 
 #### 4. Publishing to GitHub Container Registry
@@ -454,22 +451,22 @@ $ ls -la /var/cache/nginx  # Should be owned by appuser
      DOCKER_REGISTRY_PASSWORD=ghp_your_token
    ```
 
-### Trivy Scan Failures
+### Grype Scan Failures
 
-**Symptom:** CI workflow fails at the "Run Trivy vulnerability scanner" step
+**Symptom:** CI workflow fails at the "Run Grype vulnerability scanner" step
 
 **Cause:** CRITICAL or HIGH vulnerabilities detected in base image or dependencies
 
 **Solutions:**
 
 1. **Update base image:** Change to a newer patched nginx/alpine image such as `nginx:1.28.2-alpine3.23-slim`
-2. **Review findings:** Check the Trivy table output in the GitHub Actions log
-3. **Suppress false positives:** Create a `.trivyignore` file:
+2. **Review findings:** Check the Grype table output in the GitHub Actions log
+3. **Suppress false positives:** Create a `.grype.yaml` file:
    ```
-   # Example: Suppress specific CVE if it's a false positive
-   CVE-2024-12345
+   ignore:
+     - vulnerability: CVE-2024-12345
    ```
-4. **Accept risk temporarily:** Change `exit-code: '1'` to `exit-code: '0'` in the workflow (not recommended for production)
+4. **Accept risk temporarily:** Lower or remove `--fail-on high` in the workflow (not recommended for production)
 
 ### Build Failing on Hadolint
 
@@ -573,7 +570,7 @@ aptible scale --app nginx-hello --container-size 1024
 
 - [Aptible Documentation](https://deploy-docs.aptible.com/)
 - [Docker Best Practices](https://docs.docker.com/develop/dev-best-practices/)
-- [Trivy Documentation](https://aquasecurity.github.io/trivy/)
+- [Grype Documentation](https://github.com/anchore/grype)
 - [nginx Security Best Practices](https://nginx.org/en/docs/http/ngx_http_core_module.html)
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 - [OWASP Secure Headers Project](https://owasp.org/www-project-secure-headers/)

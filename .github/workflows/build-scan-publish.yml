@@ -77,8 +77,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Get image ref for Trivy
-        id: trivy-ref
+      - name: Get image ref for scanner
+        id: image-ref
         env:
           META_JSON: ${{ steps.meta.outputs.json }}
         run: |
@@ -99,23 +99,20 @@ jobs:
           echo "Event: ${{ github.event_name }}"
           echo "Git ref: ${{ github.ref }}"
 
-      # Save to tar so Trivy can scan without Docker socket/context issues
-      # (buildx can use a different context; trivy-action couldn't see the image)
-      - name: Save image for Trivy
+      # Save to tar so Grype can scan the locally built image from disk.
+      - name: Save image for Grype
         run: |
-          docker save ${{ steps.trivy-ref.outputs.ref }} -o image.tar
+          docker save ${{ steps.image-ref.outputs.ref }} -o image.tar
           ls -la image.tar
 
-      - name: Run Trivy vulnerability scanner (table)
+      - name: Run Grype vulnerability scanner (table)
         run: |
           docker run --rm \
             -v "$PWD:/workdir" \
             -w /workdir \
-            aquasec/trivy:0.59.1 image --input image.tar \
-            --scanners vuln \
-            --format table \
-            --severity CRITICAL,HIGH \
-            --exit-code 1
+            anchore/grype:v0.111.1 docker-archive:image.tar \
+            --output table \
+            --fail-on high
 
       - name: Push Docker image to GHCR
         if: github.event_name != 'pull_request'
