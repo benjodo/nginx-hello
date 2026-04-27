@@ -1,8 +1,14 @@
 # Pin to a newer slim Alpine image with patched OS packages.
-FROM nginx:1.28.2-alpine3.23-slim
+FROM nginx:1.28.3-alpine3.23-slim
 
-# Remove default nginx configuration and static assets.
-RUN rm -rf /usr/share/nginx/html/* /etc/nginx/conf.d/default.conf
+# Refresh vulnerable runtime packages and remove default nginx files.
+RUN apk add --no-cache --upgrade \
+    libcrypto3=3.5.6-r0 \
+    libssl3=3.5.6-r0 \
+    musl=1.2.5-r23 \
+    musl-utils=1.2.5-r23 \
+    zlib=1.3.2-r0 && \
+    rm -rf /usr/share/nginx/html/* /etc/nginx/conf.d/default.conf
 
 # Copy custom nginx configuration that runs on port 8080 with security headers
 COPY nginx.conf /etc/nginx/nginx.conf

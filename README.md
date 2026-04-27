@@ -45,7 +45,7 @@ Before you begin, ensure you have:
 ### Pinned Base Image
 
 ```dockerfile
-FROM nginx:1.28.2-alpine3.23-slim
+FROM nginx:1.28.3-alpine3.23-slim
 ```
 
 **Why?** Using `:alpine` or `:latest` tags can introduce breaking changes or vulnerabilities when the upstream image updates. Pinning to a specific version ensures:
@@ -78,7 +78,7 @@ EXPOSE 8080
 ### Minimal Dependencies
 
 ```dockerfile
-FROM nginx:1.28.2-alpine3.23-slim
+FROM nginx:1.28.3-alpine3.23-slim
 ```
 
 **Why?** The slim Alpine variant keeps the image small and avoids pulling in extra OS packages we don't need, reducing attack surface.
@@ -459,7 +459,7 @@ $ ls -la /var/cache/nginx  # Should be owned by appuser
 
 **Solutions:**
 
-1. **Update base image:** Change to a newer patched nginx/alpine image such as `nginx:1.28.2-alpine3.23-slim`
+1. **Update base image:** Change to a newer patched nginx/alpine image such as `nginx:1.28.3-alpine3.23-slim`
 2. **Review findings:** Check the Grype table output in the GitHub Actions log
 3. **Suppress false positives:** Create a `.grype.yaml` file:
    ```
@@ -475,7 +475,7 @@ $ ls -la /var/cache/nginx  # Should be owned by appuser
 **Cause:** Dockerfile doesn't follow best practices
 
 **Common issues:**
-- Missing version pins: `FROM nginx:alpine` should be a specific version such as `FROM nginx:1.28.2-alpine3.23-slim`
+- Missing version pins: `FROM nginx:alpine` should be a specific version such as `FROM nginx:1.28.3-alpine3.23-slim`
 - Inefficient RUN commands (should combine with `&&`)
 - Using `COPY` instead of `ADD` for URLs
 - Missing `USER` instruction
@@ -508,7 +508,7 @@ COPY . .
 RUN npm run build
 
 # Runtime stage
-FROM nginx:1.28.2-alpine3.23-slim
+FROM nginx:1.28.3-alpine3.23-slim
 COPY --from=builder /app/dist /usr/share/nginx/html
 # ... rest of hardening steps
 ```
